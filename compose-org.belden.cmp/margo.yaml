@@ -1,0 +1,227 @@
+apiVersion: margo.org/v1alpha1
+kind: ApplicationDescription
+metadata:
+  id: sensor-dashboard
+  name: "Sensor Dashboard"
+  version: "latest"
+  description: "Real-time sensor monitoring dashboard for Industrial IoT applications with MQTT integration and OpenTelemetry instrumentation"
+  catalog:
+    application:
+      descriptionFile: "resources/description.md"
+      icon: "resources/icon.png"
+      licenseFile: "resources/license.txt"
+      releaseNotes: "resources/release-notes.md"
+      tagline: "Simple, Real-Time Industrial Sensor Monitoring"
+      tags:
+        - "iot"
+        - "industrial"
+        - "mqtt"
+        - "monitoring"
+        - "sensors"
+        - "edge-computing"
+      site: "https://github.com/bhng/sensor-dashboard"
+    organization:
+      - name: "Belden Inc."
+        site: "https://www.belden.com"
+
+deploymentProfiles:
+  - id: "kubernetes-helm"
+    type: "helm.v3"
+    description: "Kubernetes deployment using Helm v3 chart. Designed for k3s and standard Kubernetes clusters. Supports multi-architecture (amd64/arm64) for edge devices including Raspberry Pi."
+    components:
+      - id: "sensor-dashboard-helm"
+        name: "sensor-helm"
+        properties:
+          repository: "oci://public.ecr.aws/g2n4p2m7/sensor-dashboard"
+          revision: "1.4.0-helm-chart"
+        resourceRequirements:
+          cpu:
+            cores: 0.1
+            architectures:
+              - amd64
+              - arm64
+          memory: "256Mi"
+          storage: "1Gi"
+          interfaces:
+            - type: ethernet
+
+  - id: "standalone-compose"
+    type: "compose"
+    description: "Docker Compose deployment for single-machine environments without Kubernetes. Suitable for edge devices, development workstations, and demo environments. Includes built-in virtual sensors for standalone operation."
+    components:
+      - id: "sensor-dashboard-compose"
+        name: "sensor-compose"
+        properties:
+          packageLocation: "https://margo-plugfest-se.s3.eu-central-1.amazonaws.com/compose.tgz"
+        resourceRequirements:
+          cpu:
+            cores: 0.1
+            architectures:
+              - amd64
+              - arm64
+          memory: "256Mi"
+          storage: "1Gi"
+          interfaces:
+            - type: ethernet
+
+parameters:
+  mqttBroker:
+    value: "192.168.1.203"
+    description: "Hostname or IP address of the MQTT broker (e.g., Mosquitto, NanoMQ)"
+    targets:
+      - pointer: "mqtt.broker"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  mqttPort:
+    value: 31883
+    description: "Port number for the MQTT broker connection"
+    targets:
+      - pointer: "mqtt.port"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  mqttTopic:
+    value: "sensors/vl53l0x/#"
+    description: "MQTT topic pattern to subscribe to for sensor data (supports wildcards)"
+    targets:
+      - pointer: "mqtt.topic"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  serviceNodePort:
+    value: 30305
+    description: "External port for accessing the dashboard (30000-32767, Kubernetes only)"
+    targets:
+      - pointer: "service.nodePort"
+        components:
+          - sensor-dashboard-helm
+
+  replicaCount:
+    value: 1
+    description: "Number of dashboard instances to run (Kubernetes only)"
+    targets:
+      - pointer: "replicaCount"
+        components:
+          - sensor-dashboard-helm
+
+  virtualSensorsEnabled:
+    value: true
+    description: "Enable virtual sensor generation for demo/testing mode. Set to false for MQTT-only mode."
+    targets:
+      - pointer: "virtualSensors.enabled"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  virtualSensorsCount:
+    value: 4
+    description: "Number of virtual sensors to generate (1-10 sensors recommended)"
+    targets:
+      - pointer: "virtualSensors.count"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  virtualSensorsRateHz:
+    value: 10
+    description: "Update rate in Hz for virtual sensors (1-20 Hz recommended)"
+    targets:
+      - pointer: "virtualSensors.rateHz"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  composePort:
+    value: 3000
+    description: "Host port mapping for sensor-dashboard web interface (Compose only)"
+    targets:
+      - pointer: "services.sensor-dashboard.ports[0]"
+        components:
+          - sensor-dashboard-compose
+
+configuration:
+  sections:
+    - name: "MQTT Configuration"
+      settings:
+        - parameter: mqttBroker
+          name: "MQTT Broker"
+          immutable: false
+          schema: mqttBrokerSchema
+
+        - parameter: mqttPort
+          name: "MQTT Port"
+          immutable: false
+          schema: mqttPortSchema
+
+        - parameter: mqttTopic
+          name: "MQTT Topic Pattern"
+          immutable: false
+          schema: mqttTopicSchema
+
+    - name: "Network Configuration"
+      settings:
+        - parameter: serviceNodePort
+          name: "Service NodePort (Kubernetes)"
+          immutable: false
+          schema: nodePortSchema
+
+        - parameter: composePort
+          name: "Host Port (Compose)"
+          immutable: false
+          schema: composePortSchema
+
+    - name: "Deployment Configuration"
+      settings:
+        - parameter: replicaCount
+          name: "Replica Count (Kubernetes)"
+          immutable: false
+          schema: replicaCountSchema
+
+    - name: "Virtual Sensors Configuration"
+      settings:
+        - parameter: virtualSensorsEnabled
+          name: "Enable Virtual Sensors"
+          immutable: false
+          schema: virtualSensorsEnabledSchema
+
+        - parameter: virtualSensorsCount
+          name: "Virtual Sensor Count"
+          immutable: false
+          schema: virtualSensorsCountSchema
+
+        - parameter: virtualSensorsRateHz
+          name: "Virtual Sensor Update Rate"
+          immutable: false
+          schema: virtualSensorsRateHzSchema
+
+  schema:
+    - name: mqttBrokerSchema
+      dataType: string
+
+    - name: mqttPortSchema
+      dataType: integer
+
+    - name: mqttTopicSchema
+      dataType: string
+
+    - name: nodePortSchema
+      dataType: integer
+
+    - name: composePortSchema
+      dataType: integer
+
+    - name: replicaCountSchema
+      dataType: integer
+
+    - name: virtualSensorsEnabledSchema
+      dataType: boolean
+
+    - name: virtualSensorsCountSchema
+      dataType: integer
+
+    - name: virtualSensorsRateHzSchema
+      dataType: integer
