@@ -1,137 +1,227 @@
-apiVersion: margo.org/v1-alpha1
+apiVersion: margo.org/v1alpha1
 kind: ApplicationDescription
 metadata:
-  id: node-red
-  name: Node-RED
-  description: Flow-based programming tool for event-driven applications
-  version: 4.1.4
+  id: sensor-dashboard
+  name: "Sensor Dashboard"
+  version: "latest"
+  description: "Real-time sensor monitoring dashboard for Industrial IoT applications with MQTT integration and OpenTelemetry instrumentation"
   catalog:
     application:
-      icon: ./resources/node-red-logo.png
-      tagline: Low-code programming tool for wiring together IoT devices, APIs, and services.
-      descriptionFile: ./resources/description.md
-      releaseNotes: ./resources/release-notes.md
-      licenseFile: ./resources/license.txt
-      site: https://nodered.org
-      tags: ["automation", "iot", "low-code", "flow-based", "integration"]
-    author:
-      - name: Node-RED Team
-        email: team@nodered.org
+      descriptionFile: "resources/description.md"
+      icon: "resources/icon.png"
+      licenseFile: "resources/license.txt"
+      releaseNotes: "resources/release-notes.md"
+      tagline: "Simple, Real-Time Industrial Sensor Monitoring"
+      tags:
+        - "iot"
+        - "industrial"
+        - "mqtt"
+        - "monitoring"
+        - "sensors"
+        - "edge-computing"
+      site: "https://github.com/bhng/sensor-dashboard"
     organization:
-      - name: OpenJS Foundation
-        site: https://openjsf.org
+      - name: "Belden Inc."
+        site: "https://www.belden.com"
+
 deploymentProfiles:
-  - type: compose
-    id: node-red-compose
+  - id: "kubernetes-helm"
+    type: "helm.v3"
+    description: "Kubernetes deployment using Helm v3 chart. Designed for k3s and standard Kubernetes clusters. Supports multi-architecture (amd64/arm64) for edge devices including Raspberry Pi."
     components:
-      - name: node-red
+      - id: "sensor-dashboard-helm"
+        name: "sensor-helm"
         properties:
-          packageLocation: https://melenaus.de/fs/nodered-image.tar.gz
+          repository: "oci://public.ecr.aws/g2n4p2m7/sensor-dashboard"
+          revision: "1.4.0-helm-chart"
+        resourceRequirements:
+          cpu:
+            cores: 0.1
+            architectures:
+              - amd64
+              - arm64
+          memory: "256Mi"
+          storage: "1Gi"
+          interfaces:
+            - type: ethernet
+
+  - id: "standalone-compose"
+    type: "compose"
+    description: "Docker Compose deployment for single-machine environments without Kubernetes. Suitable for edge devices, development workstations, and demo environments. Includes built-in virtual sensors for standalone operation."
+    components:
+      - id: "sensor-dashboard-compose"
+        name: "sensor-compose"
+        properties:
+          packageLocation: "https://margo-plugfest-se.s3.eu-central-1.amazonaws.com/compose.tgz"
+        resourceRequirements:
+          cpu:
+            cores: 0.1
+            architectures:
+              - amd64
+              - arm64
+          memory: "256Mi"
+          storage: "1Gi"
+          interfaces:
+            - type: ethernet
+
 parameters:
-  nodeRedPort:
-    value: 1880
+  mqttBroker:
+    value: "192.168.1.203"
+    description: "Hostname or IP address of the MQTT broker (e.g., Mosquitto, NanoMQ)"
     targets:
-      - pointer: PORTS.1880
-        components: ["node-red"]
-  timezone:
-    value: UTC
+      - pointer: "mqtt.broker"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  mqttPort:
+    value: 31883
+    description: "Port number for the MQTT broker connection"
     targets:
-      - pointer: ENV.TZ
-        components: ["node-red"]
-  nodeRedCredentialSecret:
-    value: my-secret-key
+      - pointer: "mqtt.port"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  mqttTopic:
+    value: "sensors/vl53l0x/#"
+    description: "MQTT topic pattern to subscribe to for sensor data (supports wildcards)"
     targets:
-      - pointer: ENV.NODE_RED_CREDENTIAL_SECRET
-        components: ["node-red"]
-  enableProjects:
-    value: false
+      - pointer: "mqtt.topic"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  serviceNodePort:
+    value: 30305
+    description: "External port for accessing the dashboard (30000-32767, Kubernetes only)"
     targets:
-      - pointer: ENV.NODE_RED_ENABLE_PROJECTS
-        components: ["node-red"]
-  flowFile:
-    value: flows.json
+      - pointer: "service.nodePort"
+        components:
+          - sensor-dashboard-helm
+
+  replicaCount:
+    value: 1
+    description: "Number of dashboard instances to run (Kubernetes only)"
     targets:
-      - pointer: ENV.FLOWS
-        components: ["node-red"]
-  nodeOptions:
-    value: --max-old-space-size=256
+      - pointer: "replicaCount"
+        components:
+          - sensor-dashboard-helm
+
+  virtualSensorsEnabled:
+    value: true
+    description: "Enable virtual sensor generation for demo/testing mode. Set to false for MQTT-only mode."
     targets:
-      - pointer: ENV.NODE_OPTIONS
-        components: ["node-red"]
-  enableSafeMode:
-    value: false
+      - pointer: "virtualSensors.enabled"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  virtualSensorsCount:
+    value: 4
+    description: "Number of virtual sensors to generate (1-10 sensors recommended)"
     targets:
-      - pointer: ENV.NODE_RED_ENABLE_SAFE_MODE
-        components: ["node-red"]
+      - pointer: "virtualSensors.count"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  virtualSensorsRateHz:
+    value: 10
+    description: "Update rate in Hz for virtual sensors (1-20 Hz recommended)"
+    targets:
+      - pointer: "virtualSensors.rateHz"
+        components:
+          - sensor-dashboard-helm
+          - sensor-dashboard-compose
+
+  composePort:
+    value: 3000
+    description: "Host port mapping for sensor-dashboard web interface (Compose only)"
+    targets:
+      - pointer: "services.sensor-dashboard.ports[0]"
+        components:
+          - sensor-dashboard-compose
+
 configuration:
   sections:
-    - name: Network Configuration
+    - name: "MQTT Configuration"
       settings:
-        - parameter: nodeRedPort
-          name: Node-RED Port
-          description: Port to access Node-RED editor and runtime
-          schema: portRange
-        - parameter: timezone
-          name: Timezone
-          description: Timezone for Node-RED container (e.g., UTC, America/New_York)
-          schema: timezoneText
-    - name: Application Configuration
+        - parameter: mqttBroker
+          name: "MQTT Broker"
+          immutable: false
+          schema: mqttBrokerSchema
+
+        - parameter: mqttPort
+          name: "MQTT Port"
+          immutable: false
+          schema: mqttPortSchema
+
+        - parameter: mqttTopic
+          name: "MQTT Topic Pattern"
+          immutable: false
+          schema: mqttTopicSchema
+
+    - name: "Network Configuration"
       settings:
-        - parameter: nodeRedCredentialSecret
-          name: Credential Secret
-          description: Secret key for encrypting credentials in flows
-          schema: secretKey
-        - parameter: enableProjects
-          name: Enable Projects
-          description: Enable Node-RED projects feature for version control
-          schema: booleanValue
-        - parameter: flowFile
-          name: Flow File
-          description: Name of the flow file to use
-          schema: fileName
-        - parameter: enableSafeMode
-          name: Enable Safe Mode
-          description: Start Node-RED in safe mode (flows not started)
-          schema: booleanValue
-    - name: Runtime Configuration
+        - parameter: serviceNodePort
+          name: "Service NodePort (Kubernetes)"
+          immutable: false
+          schema: nodePortSchema
+
+        - parameter: composePort
+          name: "Host Port (Compose)"
+          immutable: false
+          schema: composePortSchema
+
+    - name: "Deployment Configuration"
       settings:
-        - parameter: nodeOptions
-          name: Node.js Options
-          description: Node.js runtime options (e.g., memory limits)
-          schema: nodeOptionsText
+        - parameter: replicaCount
+          name: "Replica Count (Kubernetes)"
+          immutable: false
+          schema: replicaCountSchema
+
+    - name: "Virtual Sensors Configuration"
+      settings:
+        - parameter: virtualSensorsEnabled
+          name: "Enable Virtual Sensors"
+          immutable: false
+          schema: virtualSensorsEnabledSchema
+
+        - parameter: virtualSensorsCount
+          name: "Virtual Sensor Count"
+          immutable: false
+          schema: virtualSensorsCountSchema
+
+        - parameter: virtualSensorsRateHz
+          name: "Virtual Sensor Update Rate"
+          immutable: false
+          schema: virtualSensorsRateHzSchema
+
   schema:
-    - name: portRange
+    - name: mqttBrokerSchema
+      dataType: string
+
+    - name: mqttPortSchema
       dataType: integer
-      minValue: 1024
-      maxValue: 65535
-      allowEmpty: false
-    - name: booleanValue
+
+    - name: mqttTopicSchema
+      dataType: string
+
+    - name: nodePortSchema
+      dataType: integer
+
+    - name: composePortSchema
+      dataType: integer
+
+    - name: replicaCountSchema
+      dataType: integer
+
+    - name: virtualSensorsEnabledSchema
       dataType: boolean
-      allowEmpty: false
-    - name: timezoneText
-      dataType: string
-      maxLength: 64
-      allowEmpty: false
-    - name: secretKey
-      dataType: string
-      minLength: 8
-      maxLength: 256
-      allowEmpty: false
-      sensitive: true
-    - name: fileName
-      dataType: string
-      maxLength: 255
-      allowEmpty: false
-    - name: nodeOptionsText
-      dataType: string
-      maxLength: 256
-      allowEmpty: true
-    - name: cpuRange
-      dataType: double
-      minValue: 0.1
-      maxPrecision: 1
-      allowEmpty: false
-    - name: memoryRange
+
+    - name: virtualSensorsCountSchema
       dataType: integer
-      minValue: 128
-      allowEmpty: false
+
+    - name: virtualSensorsRateHzSchema
+      dataType: integer
