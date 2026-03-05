@@ -2,7 +2,7 @@ apiVersion: margo.org/v1alpha1
 kind: ApplicationDescription
 metadata:
   id: sensor-dashboard
-  name: "sensor-dashboard"
+  name: "Sensor Dashboard"
   version: "latest"
   description: "Real-time sensor monitoring dashboard for Industrial IoT applications with MQTT integration and OpenTelemetry instrumentation"
   catalog:

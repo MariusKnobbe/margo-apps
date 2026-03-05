@@ -1,4 +1,4 @@
-# Eclipse Mosquitto MQTT Broker
+# test sensor dashboard
 
 Eclipse Mosquitto is an open-source (EPL/EDL licensed) message broker that implements the MQTT protocol versions 5.0, 3.1.1, and 3.1. MQTT provides a lightweight method of carrying out messaging using a publish/subscribe model, making it ideal for Internet of Things (IoT) applications and machine-to-machine communication.
 
